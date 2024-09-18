@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Medalla de Corredor</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden;
+            background-color: #ffffff; /* Fondo blanco para el body */
+        }
+        canvas { 
+            display: block; 
+        }
+        #runner-info {
+            position: absolute;
+            top: 20px; /* Ajusta la posición vertical si es necesario */
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            z-index: 2; /* Asegura que este elemento esté por encima de otros */
+        }
+        #tag-info {
+            position: absolute;
+            top: 30px; /* Ajusta la posición vertical para que no se superponga con otros elementos */
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 16px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            z-index: 1; /* Asegura que este elemento esté por debajo del cartel de felicidades */
+        }
+
+* Media queries para pantallas más pequeñas */
+    @media (max-width: 600px) {
+        #runner-info {
+            font-size: 5vw; /* Tamaño de fuente mayor en pantallas pequeñas */
+            top: 50px; /* Ajusta la posición vertical si es necesario */
+        }
+        #tag-info {
+            font-size: 3vw; /* Tamaño de fuente mayor en pantallas pequeñas */
+            top: 20px; /* Ajusta la posición vertical si es necesario */
+        }
+    }
+    </style>
+</head
+<body>
+    <!-- Información del corredor -->
+    <div id="runner-info">
+        <h1>¡Felicidades, <span id="runner-name"></span>!</h1>
+        <p>Has completado la categoría: <span id="runner-category"></span></p>
+        <p>Haz captura de tu medalla y etiqueta a @maratonfacdef con los Hashtag: #maratonaniversariofacdef y #finisher</p>
+    
+    
+    </div>
+<
+    
+
+    <!-- Contenedor de Three.js para la animación de la medalla -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+    <script>
+        // Configuración de la escena de Three.js para la medalla
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+       // Establecer el color de fondo del renderizador en blanco
+       renderer.setSize(window.innerWidth, window.innerHeight);
+       renderer.setClearColor(0xffffff); // Blanco
+       document.body.appendChild(renderer.domElement);
+
+        // Crear una luz direccional
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 5, 5).normalize();
+        scene.add(directionalLight);
+
+        // Crear una luz ambiental
+        const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+        scene.add(ambientLight);
+
+        // Extraer el número de documento de la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const documento = urlParams.get('documento');
+
+        // URL del API de Google Apps Script
+        const apiUrl = 'https://script.google.com/macros/s/AKfycbwalUT_mAomHOZubYU-cwxhhxaraeqfTpJWK4epv8dfH1PWqij0oDAl34x-nmrPqV8YbQ/exec?documento=' + documento;
+
+        // Hacer la petición al API para obtener los datos del corredor
+        fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                // Mostrar el nombre y la categoría del corredor
+                document.getElementById('runner-name').innerText = data.nombre;
+                document.getElementById('runner-category').innerText = data.categoria;
+
+                // Cargar la medalla correcta según la categoría
+                let medallaFile;
+                if (data.categoria === "3k") {
+                    medallaFile = 'medalla_3k.glb';
+                } else if (data.categoria === "5k") {
+                    medallaFile = 'medalla_5k.glb';
+                } else if (data.categoria === "10k") {
+                    medallaFile = 'medalla_10k.glb';
+                } else {
+                    alert("Categoría desconocida.");
+                    return;
+                }
+
+                // Cargar el archivo .glb correspondiente
+                const loader = new THREE.GLTFLoader();
+                loader.load(medallaFile, function(gltf) {
+                    const medal = gltf.scene;
+                    medal.scale.set(0.2, 0.2, 0.2); // Escalar para que sea más visible
+                    scene.add(medal);
+
+                    // Animar la rotación de la medalla
+                    let rotationSpeed = 0.02;
+                    let targetRotation = 0;
+
+                    function animate() {
+                        requestAnimationFrame(animate);
+                        medal.rotation.y += rotationSpeed;
+                        renderer.render(scene, camera);
+                    }
+
+                    // Configurar el movimiento del mouse para cambiar la dirección de la rotación
+                    let mouseX = 0;
+                    let mouseY = 0;
+                    let isMouseDown = false;
+
+                    function onMouseMove(event) {
+                        if (isMouseDown) {
+                            const deltaX = event.movementX || 0;
+                            targetRotation += deltaX * 0.001; // Ajusta la velocidad de rotación
+                            rotationSpeed = (targetRotation - medal.rotation.y) * 0.1; // Control de inercia
+                        }
+                    }
+
+                    window.addEventListener('mousedown', () => { isMouseDown = true; });
+                    window.addEventListener('mouseup', () => { isMouseDown = false; });
+                    window.addEventListener('mousemove', onMouseMove);
+                    window.addEventListener('touchstart', (event) => { isMouseDown = true; });
+                    window.addEventListener('touchend', () => { isMouseDown = false; });
+                    window.addEventListener('touchmove', (event) => {
+                        if (isMouseDown) {
+                            const touch = event.touches[0];
+                            mouseX = touch.clientX;
+                            mouseY = touch.clientY;
+                            targetRotation += (mouseX - window.innerWidth / 2) * 0.001; // Ajusta la velocidad de rotación en móvil
+                            rotationSpeed = (targetRotation - medal.rotation.y) * 0.1;
+                        }
+                    });
+
+                    animate();
+                }, undefined, function(error) {
+                    console.error('Error al cargar la medalla:', error);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error al obtener los datos del corredor:', error);
+        });
+
+        // Posicionar la cámara
+        camera.position.z = 40;
+    </script>
+
+</body>
+</html>
